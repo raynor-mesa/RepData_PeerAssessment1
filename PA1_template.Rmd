@@ -7,19 +7,78 @@ output:
 
 
 ## Loading and preprocessing the data
-
-
+```{r}
+table <- read.csv("activity.csv")
+```
 
 ## What is mean total number of steps taken per day?
+First, we simply sum up the total number of steps taken on each date. 
+```{r}
+steps <- tapply(table$steps, table$date, sum)
+steps
+```
+We can easily see the distribution of total daily steps with a histogram of the above table.
+```{r}
+hist(steps)
+```
 
-
+And we can quickly calculate the meand and median of daily steps.
+```{r}
+mean(steps, na.rm = TRUE)
+median(steps, na.rm = TRUE)
+```
 
 ## What is the average daily activity pattern?
-
-
+We can examine the average daily pattern of steps by averaging the steps taken for each interval, across all days, and then simply examine the steps taken over time throughout the day.
+```{r}
+library(ggplot2)
+dailyAverage <- aggregate(steps ~ interval, table, mean)
+g <- ggplot(dailyAverage, aes(interval, steps))
+g + geom_line()
+dailyAverage[which.max(dailyAverage$steps),1]
+```
 
 ## Imputing missing values
+After finding the days with missing values, we simply replace the missing values at each interval with the daily average for that interval.
+```{r}
+missing = is.na(table$steps)
+sum(missing)
 
-
+imputed <- table
+for (i in 1:length(missing)) {
+        if (missing[i]) {
+                interval <- imputed[i,3]
+                imputed$steps[i] <- dailyAverage[dailyAverage$interval == interval, 2]
+        }
+}
+```
+We can then perform the same analysis we did originally.
+```{r}
+steps2 <- tapply(imputed$steps, imputed$date, sum)
+steps2
+hist(steps2)
+mean(steps2, na.rm = TRUE)
+median(steps2, na.rm = TRUE)
+```
+Because we subsituted the mean values for the missing values, the mean remains the same, while also increasing the median to be equal to the mean.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+days <- weekdays(as.Date(imputed$date))
+weekdays <- vector(length = length(days))
+for (i in 1:length(days)) {
+        if (days[i] == "Saturday" | days[i] == "Sunday") {
+                weekdays[i] <- "Weekend"
+        } else {weekdays[i] <- "Weekday"}
+}
+imputed <- cbind(imputed, as.factor(weekdays))
+colnames(imputed) <- c("steps", "date", "interval", "weekday")
+
+dailyAverage2 <- aggregate(steps ~ interval + weekday, imputed, mean)
+
+g2 <- ggplot(dailyAverage2, aes(interval, steps))
+g2 + geom_line() + facet_grid(. ~ weekday)
+
+```
+
+The graph comparison shows that weekdays see a greater spike of activity early in the day, but lower levels later, while weekends see a fairly consistent level of increased activity throughout the day.
